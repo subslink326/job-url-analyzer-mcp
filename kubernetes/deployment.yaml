@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: job-analyzer
+  labels:
+    app: job-analyzer
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: job-analyzer
+  template:
+    metadata:
+      labels:
+        app: job-analyzer
+    spec:
+      containers:
+      - name: job-analyzer
+        image: job-analyzer:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DEBUG
+          value: "false"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: job-analyzer-secrets
+              key: database-url
+        - name: CRUNCHBASE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: job-analyzer-secrets
+              key: crunchbase-api-key
+        - name: MAX_CONCURRENT_REQUESTS
+          value: "20"
+        - name: RESPECT_ROBOTS_TXT
+          value: "true"
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+          requests:
+            cpu: "0.5"
+            memory: "512Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: data-volume
+          mountPath: /app/data
+      volumes:
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: job-analyzer-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: job-analyzer-service
+spec:
+  selector:
+    app: job-analyzer
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8000
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: job-analyzer-pvc
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: job-analyzer-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - api.yourcompany.com
+    secretName: job-analyzer-tls
+  rules:
+  - host: api.yourcompany.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: job-analyzer-service
+            port:
+              number: 80

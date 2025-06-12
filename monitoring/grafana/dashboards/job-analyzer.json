@@ -1,0 +1,67 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Job URL Analyzer Dashboard",
+    "tags": ["job-analyzer"],
+    "style": "dark",
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Request Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(job_analyzer_requests_total[5m])",
+            "legendFormat": "{{endpoint}} - {{status_code}}"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": 2,
+        "title": "Analysis Success Rate",
+        "type": "singlestat",
+        "targets": [
+          {
+            "expr": "rate(job_analyzer_analysis_success_total[5m]) / (rate(job_analyzer_analysis_success_total[5m]) + rate(job_analyzer_analysis_error_total[5m]))",
+            "legendFormat": "Success Rate"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 0
+        }
+      },
+      {
+        "id": 3,
+        "title": "Completeness Score Distribution",
+        "type": "histogram",
+        "targets": [
+          {
+            "expr": "job_analyzer_completeness_score",
+            "legendFormat": "Completeness Score"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 24,
+          "x": 0,
+          "y": 8
+        }
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "30s"
+  }
+}
