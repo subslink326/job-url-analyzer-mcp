@@ -54,10 +54,11 @@ A comprehensive FastAPI-based microservice for analyzing job URLs and extracting
    poetry install
    ```
 
-2. **Environment Configuration**
+2. **Environment Configuration** *(Optional)*
    ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
+   # The application has sensible defaults and can run without environment configuration
+   # To customize settings, create a .env file with your configuration
+   # See src/job_url_analyzer/config.py for available settings
    ```
 
 3. **Database Setup**
@@ -239,6 +240,12 @@ poetry run black .
 poetry run ruff check .
 poetry run mypy src/
 ```
+
+## 📝 Recent Changes
+
+### Dependency Updates
+- **Fixed**: Replaced non-existent `aiohttp-robotparser` dependency with `robotexclusionrulesparser` for robots.txt parsing
+- **Improved**: Setup process now works out-of-the-box without requiring `.env` file configuration
 
 ## 🤝 Contributing
 
