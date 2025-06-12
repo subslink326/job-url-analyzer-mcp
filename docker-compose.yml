@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  job-analyzer:
+    build: .
+    container_name: job-analyzer
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=false
+      - DATABASE_URL=sqlite+aiosqlite:///./data/job_analyzer.db
+      - CORS_ORIGINS=["http://localhost:3000", "http://localhost:8080"]
+      - MAX_CONCURRENT_REQUESTS=10
+      - REQUEST_TIMEOUT=30
+      - CRAWL_DELAY=1.0
+      - RESPECT_ROBOTS_TXT=true
+      - ENABLE_CRUNCHBASE=false
+      - ENABLE_LINKEDIN=false
+      - DATA_RETENTION_DAYS=90
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: PostgreSQL database for production
+  postgres:
+    image: postgres:15-alpine
+    container_name: job-analyzer-db
+    environment:
+      POSTGRES_DB: job_analyzer
+      POSTGRES_USER: job_analyzer
+      POSTGRES_PASSWORD: secure_password_here
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    profiles:
+      - postgres
+
+  # Optional: Redis for caching
+  redis:
+    image: redis:7-alpine
+    container_name: job-analyzer-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    profiles:
+      - cache
+
+  # Optional: Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: job-analyzer-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+  # Optional: Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: job-analyzer-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+volumes:
+  postgres_data:
+  prometheus_data:
+  grafana_data:

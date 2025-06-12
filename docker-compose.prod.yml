@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  job-analyzer:
+    build: 
+      context: .
+      target: production
+    image: job-analyzer:latest
+    container_name: job-analyzer-prod
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=false
+      - DATABASE_URL=postgresql+asyncpg://job_analyzer:${DB_PASSWORD}@postgres:5432/job_analyzer
+      - CORS_ORIGINS=["https://yourapp.com", "https://api.yourapp.com"]
+      - MAX_CONCURRENT_REQUESTS=20
+      - REQUEST_TIMEOUT=30
+      - CRAWL_DELAY=2.0
+      - RESPECT_ROBOTS_TXT=true
+      - ENABLE_CRUNCHBASE=true
+      - CRUNCHBASE_API_KEY=${CRUNCHBASE_API_KEY}
+      - ENABLE_LINKEDIN=false
+      - DATA_RETENTION_DAYS=365
+    volumes:
+      - app_data:/app/data
+      - app_logs:/app/logs
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: job-analyzer-db-prod
+    environment:
+      POSTGRES_DB: job_analyzer
+      POSTGRES_USER: job_analyzer
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+
+  redis:
+    image: redis:7-alpine
+    container_name: job-analyzer-redis-prod
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+
+  nginx:
+    image: nginx:alpine
+    container_name: job-analyzer-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - job-analyzer
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  app_data:
+  app_logs:
